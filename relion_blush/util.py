@@ -10,6 +10,7 @@ import numpy as np
 import mrcfile as mrc
 from collections import OrderedDict
 from filelock import Timeout, FileLock
+from loguru import logger
 
 
 class ScanningBlockIterator:
@@ -745,18 +746,21 @@ def get_device_assignment(job_dir, device_id_list=None, max_retry=300):
         else:
             device_id_list = list(set(device_id_list))  # Get unique values
 
-        for retry in range(max_retry):
+        i = 0
+        while device_id_list:
             for id in device_id_list:
                 if id < 0:
                     return "cpu", None
                 device_lock_file_path = os.path.join(job_dir, f"device_lock_id{id}")
                 device_lock_file = FileLock(device_lock_file_path)
+                logger.info(f"Trying to get file lock on device {id}, attempt {i}")
                 try:
                     device_lock_file.acquire(timeout=timeout)
                     return f"cuda:{id}", device_lock_file
                 except TimeoutError:
                     pass
             timeout = 1
+            i += 1
 
     return "cpu", None
 
